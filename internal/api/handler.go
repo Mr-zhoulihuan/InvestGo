@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"investgo/internal/logger"
-	"investgo/internal/core/hot"
 	"investgo/internal/core"
+	"investgo/internal/core/hot"
+	"investgo/internal/logger"
 )
 
 // handleOverview returns the backend-computed analytics payload for the overview module.
@@ -97,6 +97,37 @@ func (h *Handler) handleClientLogs(writer http.ResponseWriter, request *http.Req
 	}
 
 	h.logs.Log(payload.Source, payload.Scope, sanitiseDeveloperLogLevel(payload.Level), payload.Message)
+	writeJSON(writer, http.StatusOK, map[string]bool{"ok": true})
+}
+
+// handleWindowAction performs native window operations (minimise, maximise, etc.)
+func (h *Handler) handleWindowAction(writer http.ResponseWriter, request *http.Request) {
+	var payload windowActionRequest
+	if err := decodeJSON(request, &payload); err != nil {
+		writeError(writer, request, http.StatusBadRequest, err)
+		return
+	}
+
+	mainWin, found := h.app.Window.GetByName("main")
+	if !found {
+		writeError(writer, request, http.StatusInternalServerError, &apiError{message: "Main window not found"})
+		return
+	}
+
+	switch payload.Action {
+	case "minimise":
+		mainWin.Minimise()
+	case "maximise":
+		mainWin.Maximise()
+	case "unmaximise":
+		mainWin.UnMaximise()
+	case "close":
+		h.app.Quit()
+	default:
+		writeError(writer, request, http.StatusBadRequest, &apiError{message: "Invalid window action"})
+		return
+	}
+
 	writeJSON(writer, http.StatusOK, map[string]bool{"ok": true})
 }
 

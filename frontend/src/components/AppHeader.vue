@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { reactive } from "vue";
+import { reactive, ref, onMounted, onUnmounted } from "vue";
 
 import { formatDateTime } from "../format";
 import { useI18n } from "../i18n";
-import { isWindowMaximised, maximiseWindow, restoreWindow, startWindowDrag } from "../wails-runtime";
+import { isWindowMaximised, maximiseWindow, restoreWindow, startWindowDrag, minimiseWindow, closeWindow } from "../wails-runtime";
 import type { StatusTone } from "../types";
 
 defineProps<{
@@ -13,6 +13,19 @@ defineProps<{
 }>();
 
 const { t } = useI18n();
+
+const isMaximised = ref(false);
+
+async function checkMaximised() {
+    isMaximised.value = await isWindowMaximised();
+}
+
+onMounted(() => {
+    checkMaximised();
+    // Poll or use an event if Wails v3 provides window events to JS
+    const timer = setInterval(checkMaximised, 1000);
+    onUnmounted(() => clearInterval(timer));
+});
 
 const dragState = reactive({
     active: false,
@@ -90,13 +103,29 @@ async function handleBarDoubleClick(event: MouseEvent): Promise<void> {
     }
 
     event.preventDefault();
-    const maximised = await isWindowMaximised();
-    if (maximised) {
+    if (isMaximised.value) {
         restoreWindow();
-        return;
+    } else {
+        maximiseWindow();
     }
+    checkMaximised();
+}
 
-    maximiseWindow();
+function handleMinimise() {
+    minimiseWindow();
+}
+
+function handleMaximiseToggle() {
+    if (isMaximised.value) {
+        restoreWindow();
+    } else {
+        maximiseWindow();
+    }
+    checkMaximised();
+}
+
+function handleClose() {
+    closeWindow();
 }
 </script>
 
@@ -108,6 +137,18 @@ async function handleBarDoubleClick(event: MouseEvent): Promise<void> {
                 <span class="window-status-text">{{ statusText }}</span>
                 <span class="window-status-separator">·</span>
                 <span class="window-status-time">{{ t("app.recentRefresh", { time: formatDateTime(generatedAt) }) }}</span>
+            </div>
+            <div class="window-controls">
+                <button type="button" class="control-btn" :title="t('app.window.minimise')" @click.stop="handleMinimise">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6h8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+                </button>
+                <button type="button" class="control-btn" :title="isMaximised ? t('app.window.restore') : t('app.window.maximise')" @click.stop="handleMaximiseToggle">
+                    <svg v-if="isMaximised" width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="3.5" y="3.5" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M2.5 8.5V3.5a1 1 0 011-1h5" stroke="currentColor" stroke-width="1.2"/></svg>
+                    <svg v-else width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="2.5" y="2.5" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.2"/></svg>
+                </button>
+                <button type="button" class="control-btn close-btn" :title="t('app.window.close')" @click.stop="handleClose">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 3l6 6M9 3L3 9" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+                </button>
             </div>
         </div>
     </header>
@@ -182,6 +223,42 @@ async function handleBarDoubleClick(event: MouseEvent): Promise<void> {
 
 .window-status[data-tone="success"] .window-status-text {
     color: var(--accent);
+}
+
+.window-controls {
+    display: flex;
+    align-items: center;
+    margin-left: 8px;
+    height: 32px;
+}
+
+.control-btn {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-radius: 6px;
+}
+
+.control-btn:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: var(--ink);
+}
+
+.app-dark .control-btn:hover,
+html[data-theme="dark"] .control-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.control-btn.close-btn:hover {
+    background: #e81123;
+    color: white;
 }
 
 @media (max-width: 880px) {

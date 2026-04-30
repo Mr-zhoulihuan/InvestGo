@@ -11,11 +11,11 @@ import (
 	"path/filepath"
 
 	"investgo/internal/api"
-	"investgo/internal/logger"
-	"investgo/internal/core/marketdata"
-	"investgo/internal/core/hot"
 	"investgo/internal/core"
+	"investgo/internal/core/hot"
+	"investgo/internal/core/marketdata"
 	"investgo/internal/core/store"
+	"investgo/internal/logger"
 	"investgo/internal/platform"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -95,11 +95,19 @@ func main() {
 		log.Fatalf("load frontend assets: %v", err)
 	}
 
+	// We need a placeholder app instance to create the API handler,
+	// but the handler needs the real app instance. Since they circularly depend
+	// on each other during bootstrap, we'll create the handler and then the app.
+	var app *application.App
+
 	mux := http.NewServeMux()
-	mux.Handle("/api/", api.NewHandler(store, hotService, logs, proxyTransport))
+	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
+		// This lazy-wires the handler to use the app instance once it's created.
+		api.NewHandler(store, hotService, logs, proxyTransport, app).ServeHTTP(w, r)
+	})
 	mux.Handle("/", application.BundledAssetFileServer(frontendFS))
 
-	app := application.New(application.Options{
+	app = application.New(application.Options{
 		Name:        "InvestGo",
 		Description: "Go + Wails v3 Investment Monitor Desktop App",
 		Icon:        appIcon,
@@ -123,7 +131,32 @@ func main() {
 	})
 
 	useNativeTitleBar := snapshot.Settings.UseNativeTitleBar
-	windowOptions := platform.BuildMainWindowOptions(useNativeTitleBar)
+
+	// Calculate initial window size based on primary screen resolution
+	width, height := 1200, 828 // Default fallback
+	if primaryScreen := app.Screen.GetPrimary(); primaryScreen != nil {
+		// Calculate 80% of screen width/height, but not exceeding a reasonable maximum
+		targetWidth := int(float64(primaryScreen.Size.Width) * 0.8)
+		targetHeight := int(float64(primaryScreen.Size.Height) * 0.8)
+
+		// Clamp to sensible defaults for a desktop app
+		if targetWidth > 1600 {
+			targetWidth = 1600
+		}
+		if targetHeight > 1000 {
+			targetHeight = 1000
+		}
+		// Ensure it's not smaller than our MinWidth/MinHeight (match window.go)
+		if targetWidth < 1024 {
+			targetWidth = 1024
+		}
+		if targetHeight < 700 {
+			targetHeight = 700
+		}
+		width, height = targetWidth, targetHeight
+	}
+
+	windowOptions := platform.BuildMainWindowOptions(useNativeTitleBar, width, height)
 	windowOptions.KeyBindings = map[string]func(window application.Window){
 		"F12": func(window application.Window) {
 			snapshot := store.Snapshot()

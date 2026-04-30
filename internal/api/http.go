@@ -12,6 +12,8 @@ import (
 	"investgo/internal/core/store"
 	"investgo/internal/logger"
 	"investgo/internal/platform"
+
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 // Handler handles `/api/*` requests and coordinates backend services.
@@ -20,7 +22,8 @@ type Handler struct {
 	hot            *hot.HotService
 	logs           *logger.LogBook
 	proxyTransport *platform.ProxyTransport
-	mux            *http.ServeMux // internal router (Go 1.22+ pattern matching)
+	app            *application.App // Wails app reference for window control
+	mux            *http.ServeMux   // internal router (Go 1.22+ pattern matching)
 }
 
 const localeHeader = "X-InvestGo-Locale"
@@ -37,17 +40,22 @@ type openExternalRequest struct {
 	URL string `json:"url"`
 }
 
+type windowActionRequest struct {
+	Action string `json:"action"` // minimise, maximise, unmaximise, close
+}
+
 type pinItemRequest struct {
 	Pinned bool `json:"pinned"`
 }
 
 // NewHandler returns the unified API handler.
-func NewHandler(store *store.Store, hot *hot.HotService, logs *logger.LogBook, proxyTransport *platform.ProxyTransport) *Handler {
+func NewHandler(store *store.Store, hot *hot.HotService, logs *logger.LogBook, proxyTransport *platform.ProxyTransport, app *application.App) *Handler {
 	h := &Handler{
 		store:          store,
 		hot:            hot,
 		logs:           logs,
 		proxyTransport: proxyTransport,
+		app:            app,
 	}
 	h.mux = h.buildMux()
 	return h
@@ -67,6 +75,7 @@ func (h *Handler) buildMux() *http.ServeMux {
 	mux.HandleFunc("GET /history", h.handleHistory)
 	mux.HandleFunc("POST /refresh", h.handleRefresh)
 	mux.HandleFunc("POST /open-external", h.handleOpenExternal)
+	mux.HandleFunc("POST /window", h.handleWindowAction)
 	mux.HandleFunc("PUT /settings", h.handleUpdateSettings)
 	mux.HandleFunc("POST /items", h.handleCreateItem)
 	mux.HandleFunc("POST /items/{id}/refresh", h.handleRefreshItem)

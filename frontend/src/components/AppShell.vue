@@ -75,8 +75,8 @@ const { appShellRef, sidebarWidth, sidebarHidden, toggleSidebar, startSidebarRes
     height: 100%;
     display: grid;
     grid-template-columns: var(--sidebar-width, 220px) minmax(0, 1fr);
-    gap: 10px;
-    padding: 10px;
+    gap: 0;
+    padding: 0;
 }
 
 .app-shell.is-sidebar-hidden {
@@ -87,22 +87,21 @@ const { appShellRef, sidebarWidth, sidebarHidden, toggleSidebar, startSidebarRes
     min-height: 0;
     display: flex;
     flex-direction: column;
-    border: 1px solid var(--border);
+    border: none;
+    border-right: 1px solid var(--border);
     background:
         radial-gradient(circle at top left, color-mix(in srgb, var(--accent-soft) 90%, transparent) 0%, transparent 42%),
         linear-gradient(180deg, color-mix(in srgb, var(--panel-soft) 68%, var(--panel-bg)) 0%, var(--panel-bg) 100%);
-    box-shadow:
-        0 18px 40px rgba(15, 23, 42, 0.1),
-        0 6px 18px rgba(15, 23, 42, 0.06),
-        0 1px 0 rgba(255, 255, 255, 0.18) inset;
+    box-shadow: none;
     backdrop-filter: blur(14px);
-    border-radius: 18px;
+    border-top-left-radius: var(--radius-shell);
+    border-bottom-left-radius: var(--radius-shell);
     overflow: hidden;
 }
 
 .sidebar-topbar {
     min-height: 52px;
-    padding: 0 10px 0 76px;
+    padding: 0 10px 0 10px;
     display: flex;
     align-items: flex-start;
     justify-content: flex-end;
@@ -113,7 +112,14 @@ const { appShellRef, sidebarWidth, sidebarHidden, toggleSidebar, startSidebarRes
     min-height: 0;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 0;
+    border: none;
+    background: var(--panel-bg);
+    box-shadow: none;
+    backdrop-filter: blur(14px);
+    border-top-right-radius: var(--radius-shell);
+    border-bottom-right-radius: var(--radius-shell);
+    overflow: hidden;
 }
 
 .main-topbar {
@@ -125,8 +131,8 @@ const { appShellRef, sidebarWidth, sidebarHidden, toggleSidebar, startSidebarRes
     flex: 1 1 auto;
 }
 
-.main-topbar .sidebar-chrome-toggle {
-    margin-left: 76px;
+.sidebar-chrome-toggle {
+    margin-left: 10px;
     margin-right: 4px;
     align-self: flex-start;
     margin-top: 2px;
